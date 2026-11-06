@@ -1,5 +1,5 @@
 ---
-name: youtube-captions
+name: video-summary
 description: Transcribe a YouTube video, a HackerTube video, another supported URL, or a local media file. Write a structured, researched summary with answers, new information, mechanisms, context, implications, and an opinion. Use provider captions when they exist. Use the local video-transcriber CLI and Phonon-2 when captions do not exist. Requires an explicit slash command.
 disable-model-invocation: true
 ---
@@ -7,6 +7,14 @@ disable-model-invocation: true
 # Video transcript → researched summary
 
 Default output is the **summary** (see "Summary template"). Give only the raw transcript if the user asks for just that.
+
+## Setup
+If the argument is exactly `setup`, do these steps and stop:
+1. Check for `uv`. If it is missing, give the user the installation page: https://docs.astral.sh/uv/. Stop.
+2. Check for `video-transcriber`. If it is missing, run:
+   `uv tool install --python 3.12 git+https://github.com/Kovaxs/video-transcriber.git`
+3. Run `video-transcriber setup`. Let the user answer the model prompt. Phonon-2 is the recommended model. It transcribes English only.
+4. Report the setup result. Do not transcribe a video and do not do web research.
 
 ## Workflow
 1. **Choose the transcript path.** For a YouTube URL, use the Yes path in "Fetching captions". For a HackerTube URL, another URL, or a local media file, use the No path below. If YouTube has no captions, use the No path.
@@ -107,6 +115,6 @@ About 20k characters per 20 minutes of video. Read in chunks with `read` offset/
 
 ## Troubleshooting
 - `TranscriptsDisabled` / `NoTranscriptFound`: use the No path with the `video-transcriber` CLI.
-- `video-transcriber: command not found`: tell the user that the Python CLI is missing. Do not install it without user approval.
+- `video-transcriber: command not found`: tell the user to run `/skill:video-summary setup`.
 - `RequestBlocked` / `IpBlocked`: YouTube is rate-limiting this IP. Wait, or use `--https-proxy`.
 - `yt-dlp --print` metadata can also fail on 429. Then take the title from the web search or the page.

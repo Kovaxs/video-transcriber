@@ -2,7 +2,7 @@
   "name": "video-transcriber",
   "version": "0.1.0",
   "private": true,
-  "description": "Video URL or local media to transcript. Pi package with the youtube-captions skill.",
+  "description": "Video URL or local media to transcript. Pi package with the video-summary skill.",
   "keywords": ["pi-package"],
   "pi": {
     "skills": ["./skills"]
