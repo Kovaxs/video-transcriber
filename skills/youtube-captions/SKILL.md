@@ -1,22 +1,24 @@
 ---
 name: youtube-captions
-description: Fetch the captions of a YouTube video and write a structured, researched summary of it (answers to the user's questions, what's new, how it works, behind the news, why it matters, and an opinion). Use whenever the user shares a youtube.com / youtu.be link and asks what it says, for a summary, a transcript or captions, or asks a question about its content. Works without login or API key, and is the fallback when fetch_content fails on YouTube.
+description: Transcribe a YouTube video, a HackerTube video, another supported URL, or a local media file. Write a structured, researched summary with answers, new information, mechanisms, context, implications, and an opinion. Use provider captions when they exist. Use the local video-transcriber CLI and Phonon-2 when captions do not exist. Requires an explicit slash command.
+disable-model-invocation: true
 ---
 
-# YouTube captions → researched summary
+# Video transcript → researched summary
 
 Default output is the **summary** (see "Summary template"). Give only the raw transcript if the user asks for just that.
 
 ## Workflow
-1. **Get the video ID.** The CLI takes the 11-character ID, not a URL. Extract it from `v=`, `youtu.be/`, `shorts/` or `embed/`.
-2. **Get metadata** (title, channel, upload date, duration):
-   `yt-dlp --skip-download --print "%(title)s|%(uploader)s|%(duration)s|%(upload_date)s" <url>`
-3. **Get captions** (see "Fetching captions") and read the whole file in chunks. Don't summarize from the first chunk only.
+1. **Choose the transcript path.** For a YouTube URL, use the Yes path in "Fetching captions". For a HackerTube URL, another URL, or a local media file, use the No path below. If YouTube has no captions, use the No path.
+2. **Use the Yes path when captions exist.** Extract the 11-character video ID from `v=`, `youtu.be/`, `shorts/`, or `embed/`. Get the captions and read the whole file in chunks. Get the title, channel, upload date, and duration with `yt-dlp`.
+3. **Use the No path when captions do not exist.** Create a temporary JSON path with `mktemp /tmp/video-transcriber.XXXXXX.json`. Then run:
+   `video-transcriber transcribe <URL-or-local-path> --format json --output <temporary-path>`
+   Read the whole JSON file in chunks. The `text` field contains the transcript. The `source` field contains the metadata. Do not summarize only the first chunk.
 4. **List the user's concrete questions** from their message. If there are none, skip section 1 of the template.
 5. **Research the topic on the web before writing** (`web_search` with 2–4 varied queries, then `fetch_content` on the best sources). Do this twice:
    - For *What's new*: what is announced or released, and does outside coverage confirm or contradict the video's claims? Find the primary source (repo, paper, blog, press release).
    - For *Behind the news*: background, reactions, criticism, earlier events, who said what, and the competitive or regulatory context.
-6. **Write the summary** in the template below. Mark each fact by its source: "the video says…" when it comes only from the captions, and name the source for web-sourced facts. If the web contradicts the video, say so.
+6. **Write the summary** in the template below. Mark each fact by its source: "the video says…" when it comes only from the transcript, and name the source for web-sourced facts. If the web contradicts the video, say so.
 
 ## Summary template
 Force this exact markdown structure: same heading levels, same numbering, same order. Write prose paragraphs under each heading, not bullet lists. The only exceptions are section 1, which is a bullet list, and short lists inside section 3 that enumerate parallel items.
@@ -71,7 +73,13 @@ Style rules:
 - Captions are auto-generated. Names, model names, and numbers may be transcribed wrongly, so cross-check them with the web before repeating them.
 
 ## Fetching captions
-Uses the `youtube_transcript_api` CLI (unofficial client by Jonas Depoix, https://github.com/jdepoix/youtube-transcript-api, MIT).
+Get the metadata with:
+
+```bash
+yt-dlp --skip-download --print "%(title)s|%(uploader)s|%(duration)s|%(upload_date)s" <url>
+```
+
+Use the `youtube_transcript_api` CLI (unofficial client by Jonas Depoix, https://github.com/jdepoix/youtube-transcript-api, MIT).
 
 Setup once: `uv tool install youtube-transcript-api` (remove with `uv tool uninstall youtube-transcript-api`).
 
@@ -98,6 +106,7 @@ About 20k characters per 20 minutes of video. Read in chunks with `read` offset/
 3. `youtube_transcript_api` works.
 
 ## Troubleshooting
-- `TranscriptsDisabled` / `NoTranscriptFound`: the video has no captions. Tell the user. A fallback is downloading the audio with yt-dlp and transcribing it, but only if the user wants that.
+- `TranscriptsDisabled` / `NoTranscriptFound`: use the No path with the `video-transcriber` CLI.
+- `video-transcriber: command not found`: tell the user that the Python CLI is missing. Do not install it without user approval.
 - `RequestBlocked` / `IpBlocked`: YouTube is rate-limiting this IP. Wait, or use `--https-proxy`.
 - `yt-dlp --print` metadata can also fail on 429. Then take the title from the web search or the page.
