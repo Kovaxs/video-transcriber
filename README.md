@@ -24,10 +24,18 @@ pi install https://github.com/Kovaxs/video-transcriber
 Run the setup command in Pi:
 
 ```text
-/skill:video-summary setup
+/video-setup
 ```
 
-The setup installs the Python CLI if it is missing. It also installs missing caption tools and ffmpeg. Then it asks for a speech model and downloads that model.
+The command installs the Python CLI from the same package that Pi loads. It does not fetch another repository version.
+
+The command reads the Python model catalog and opens a Pi selection dialog. Each option shows the model, supported languages, download size, and recommendation.
+
+Select a model with the arrow keys and press Enter. Press Escape to cancel before the model download.
+
+The command then installs missing caption tools and ffmpeg. It downloads the selected model and saves the selection. The command shows progress and errors in Pi. It does not use a terminal prompt.
+
+After a package update, run `/reload` in Pi to load the command. Run `/video-setup` again to change the model.
 
 The setup uses `uv tool` for Python commands. It uses Homebrew for ffmpeg. The `fermion` command downloads and verifies the model weights.
 
@@ -59,6 +67,12 @@ video-transcriber setup --model phonon-2
 | Phonon-2 | `phonon-2` | English only | 158 MB | Recommended |
 
 Phonon-2 runs locally through MLX. It provides punctuation, capitalization, segments, and word timestamps.
+
+Print the catalog as JSON without a model download:
+
+```bash
+video-transcriber models
+```
 
 The CLI accepts only models from this catalog. It does not accept arbitrary model names. A maintainer must add each supported model and all its languages.
 
@@ -133,6 +147,20 @@ Run the unit tests:
 ```bash
 uv run pytest
 ```
+
+Run the Pi extension tests with Node.js 22.18 or later:
+
+```bash
+node --test tests/test_video_setup.mjs
+```
+
+Test the Pi dialog from the local package:
+
+```bash
+pi -e .
+```
+
+Then enter `/video-setup` in Pi.
 
 Run the code checks:
 

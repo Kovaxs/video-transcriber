@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Sequence
+from dataclasses import asdict
 from pathlib import Path
 from typing import cast
 
@@ -31,6 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=[model.model_id for model in SUPPORTED_MODELS],
         help="Select a supported model without an interactive prompt.",
     )
+    subparsers.add_parser("models", help="Print the supported model catalog as JSON.")
     transcribe_parser = subparsers.add_parser(
         "transcribe", help="Transcribe a URL or local media file."
     )
@@ -57,9 +60,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command-line interface and return its exit code."""
     args = build_parser().parse_args(argv)
-    if args.command not in {"setup", "transcribe"}:
+    if args.command not in {"setup", "transcribe", "models"}:
         return 2
     try:
+        if args.command == "models":
+            print(json.dumps([asdict(model) for model in SUPPORTED_MODELS]))
+            return 0
         if args.command == "setup":
             run_setup(args.model)
             return 0

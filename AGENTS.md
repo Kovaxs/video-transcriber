@@ -62,7 +62,7 @@ skill: read the full transcript, do web research, write the summary
 The repository and the skill have different jobs. Keep them separate.
 
 - **Repository:** deterministic work. URL parsing, audio download, model calls, output formats, caches, temporary files, errors, tests. The Python code must not use an LLM. It must not know about pi.
-- **Pi package:** `package.json` makes the repository a pi package. It exposes `skills/` to pi. Install command: `pi install https://github.com/Kovaxs/video-transcriber`. This command installs the Pi skill. Run `/skill:video-summary setup` to install the Python CLI, dependencies, and model. Do not put a copy of the skill in `~/.agents/skills/`.
+- **Pi package:** `package.json` makes the repository a pi package. It exposes `skills/` and `extensions/video-setup.ts` to pi. Install command: `pi install https://github.com/Kovaxs/video-transcriber`. This command installs the Pi skill and setup extension. Run `/video-setup` to select a model in a Pi dialog and install the Python CLI, dependencies, and model. Do not put a copy of the skill in `~/.agents/skills/`.
 - **Skill** (`skills/video-summary/SKILL.md`): agent workflow. Choose the path, call the CLI of this repository for the No path, read the full transcript, do web research, write the summary with the template and the ASD-STE100 rules.
 
 Target CLI:
@@ -80,7 +80,8 @@ video-transcriber/
 ├── pyproject.toml
 ├── README.md
 ├── AGENTS.md
-├── package.json     pi package manifest (skills only)
+├── package.json     pi package manifest (skill and setup extension)
+├── extensions/video-setup.ts  Pi setup command and model dialog
 ├── skills/video-summary/SKILL.md
 ├── src/video_transcriber/
 │   ├── cli.py       command-line entry point

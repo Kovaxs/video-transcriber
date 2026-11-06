@@ -8,7 +8,7 @@ import pytest
 from video_transcriber import cli
 from video_transcriber.errors import TranscriberError
 from video_transcriber.media import Media
-from video_transcriber.models import PHONON_2, ModelSpec
+from video_transcriber.models import PHONON_2, SUPPORTED_MODELS, ModelSpec
 from video_transcriber.phonon import Transcript
 
 
@@ -75,6 +75,32 @@ def test_cli_runs_setup_with_catalog_model(
     monkeypatch.setattr(cli, "run_setup", fake_setup)
     assert cli.main(["setup", "--model", "phonon-2"]) == 0
     assert selected == ["phonon-2"]
+
+
+def test_cli_prints_model_catalog_without_setup(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def fail_setup(model_id: str | None) -> ModelSpec:
+        raise AssertionError("The catalog command must not run setup.")
+
+    monkeypatch.setattr(cli, "run_setup", fail_setup)
+    assert cli.main(["models"]) == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    assert json.loads(captured.out) == [
+        {
+            "model_id": model.model_id,
+            "display_name": model.display_name,
+            "backend_name": model.backend_name,
+            "languages": [
+                {"code": language.code, "name": language.name}
+                for language in model.languages
+            ],
+            "download_size_mb": model.download_size_mb,
+            "recommended": model.recommended,
+        }
+        for model in SUPPORTED_MODELS
+    ]
 
 
 def test_cli_reports_expected_error(
