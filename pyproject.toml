@@ -1,0 +1,46 @@
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[project]
+name = "video-transcriber"
+version = "0.1.0"
+description = "Transcribe video URLs and local media files locally with Phonon-2."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "fermion-research[mlx]==0.2.15",
+  "yt-dlp==2026.10.26",
+]
+
+[project.scripts]
+video-transcriber = "video_transcriber.cli:main"
+
+[dependency-groups]
+dev = [
+  "pyright==1.1.414",
+  "pytest==9.0.2",
+  "ruff==0.15.2",
+]
+
+[tool.uv]
+package = true
+
+[tool.pytest.ini_options]
+addopts = "-m 'not integration'"
+markers = [
+  "integration: uses the network or the local speech model",
+]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pyright]
+include = ["src", "tests"]
+typeCheckingMode = "strict"
+pythonVersion = "3.12"
