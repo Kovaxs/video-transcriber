@@ -2,11 +2,13 @@
 
 ## Project Purpose
 
-video-transcriber is a local tool. It changes a video URL into a transcript.
+video-transcriber is a local tool. It changes a video URL or a local media file into a transcript.
 
 ### Problem
 
 A user gives a video URL. The user wants a transcript or a researched summary of the video. Some videos have captions on the provider. Other videos have no captions, or the provider does not show the captions.
+
+The user can also give a local audio file or a local video file. A local file has no provider captions.
 
 Example: the URL `https://hackertube.org/watch/S4gU2Tsv6hY` is a HackerTube page. HackerTube is a frontend for YouTube videos. The HackerTube page and its API give only metadata. They do not give captions.
 
@@ -15,17 +17,19 @@ Example: the URL `https://hackertube.org/watch/S4gU2Tsv6hY` is a HackerTube page
 The tool has two paths:
 
 1. **Yes path (captions exist).** The tool gets the captions from the provider. This path works now through `youtube_transcript_api`. Do not change it unless the user asks.
-2. **No path (captions do not exist).** The tool downloads the audio of the video. Then the tool transcribes the audio locally with a speech recognition model.
+2. **No path (captions do not exist).** The tool downloads the audio of the video. Then the tool transcribes the audio locally with a speech recognition model. For a local audio file or a local video file, the tool does not download. It converts the file to audio with ffmpeg.
 
 The provider is only an input. The tool uses the provider only to get metadata and audio. The speech recognition runs on the local machine. The tool does not send audio or text to an external transcription service.
 
 ### Pipeline for the No path
 
 ```text
-video URL (HackerTube, YouTube, other providers)
-        |
-        v
-get metadata and audio (yt-dlp, 16 kHz mono WAV)
+video URL (HackerTube, YouTube, other providers)      local audio or video file
+        |                                                   |
+        v                                                   v
+get metadata and audio (yt-dlp, 16 kHz mono WAV)     convert to 16 kHz mono WAV (ffmpeg)
+        |                                                   |
+        +---------------------------------------------------+
         |
         v
 transcribe locally (Phonon-2)
@@ -42,6 +46,7 @@ skill: read the full transcript, do web research, write the summary
 - Use English transcription only. Do this also when the user asks for a different language. The summary skill can write the summary in the language of the user.
 - Use Phonon-2 as the only speech recognition model. Phonon-2 is a 164 MB, English-only, 2.1-bit quantized version of NVIDIA Parakeet TDT 0.6B v3. It runs on Apple silicon through MLX. Model page: https://www.fermionresearch.com/models/phonon-2/
 - Use yt-dlp to download audio. Start with HackerTube URLs. Extract the YouTube video ID from the HackerTube URL. Other providers that yt-dlp supports must work with no special code where possible.
+- Accept a local audio file or a local video file as input. Use ffmpeg to extract the audio. Use the file name as the title in the metadata.
 - Test the full chain with the HackerTube URL above. That video ("The Iroquois Confederacy", Historia Civilis) has manually created English captions on YouTube. Use these captions as the reference to measure the word error rate (WER) of the No path.
 
 ### Out of scope (later steps)
@@ -50,22 +55,24 @@ skill: read the full transcript, do web research, write the summary
 - Whisper as the model for languages that are not English.
 - Translation.
 - Automatic choice between the Yes path and the No path. For now, the skill makes this choice.
+- Automatic installation of the model and dependencies. A later setup command will do this work.
 
 ### Repository and skill
 
 The repository and the skill have different jobs. Keep them separate.
 
 - **Repository:** deterministic work. URL parsing, audio download, model calls, output formats, caches, temporary files, errors, tests. The Python code must not use an LLM. It must not know about pi.
-- **Pi package:** `package.json` makes the repository a local pi package. It exposes `skills/` to pi. pi loads the skill from this path, with no copy. Install command: `pi install ~/workspace/video-transcriber`. Do not put a copy of the skill in `~/.agents/skills/`.
+- **Pi package:** `package.json` makes the repository a pi package. It exposes `skills/` to pi. Install command: `pi install https://github.com/Kovaxs/video-transcriber`. This command installs the Pi skill. Install the Python CLI separately with `uv tool install`. Do not put a copy of the skill in `~/.agents/skills/`.
 - **Skill** (`skills/youtube-captions/SKILL.md`): agent workflow. Choose the path, call the CLI of this repository for the No path, read the full transcript, do web research, write the summary with the template and the ASD-STE100 rules.
 
 Target CLI:
 
 ```bash
 video-transcriber transcribe <URL> --format srt
+video-transcriber transcribe ./talk.mp4 --format srt
 ```
 
-### Planned layout
+### Layout
 
 ```text
 video-transcriber/
@@ -76,16 +83,17 @@ video-transcriber/
 ├── skills/youtube-captions/SKILL.md
 ├── src/video_transcriber/
 │   ├── cli.py       command-line entry point
-│   ├── media.py     URL parsing, metadata, audio download
-│   ├── phonon.py    Phonon-2 transcription
-│   └── formats.py   TXT, SRT, VTT, JSON output
+│   ├── media.py     URL parsing, metadata, audio download, local file conversion
+│   ├── phonon.py    Phonon-2 transcription and data types
+│   ├── formats.py   TXT, SRT, VTT, JSON output
+│   └── errors.py    Shared command-line errors
 └── tests/
 ```
 
 ### Development machine
 
 - Apple M1 Max, 32 GB, macOS. The Phonon-2 speed numbers on the model page come from an M5 MacBook Air. Measure the speed again on this machine. Do not copy the vendor numbers as results.
-- Available tools: `uv`, `yt-dlp`, `youtube_transcript_api`, `jj`.
+- Available tools: `uv`, `yt-dlp`, `ffmpeg`, `youtube_transcript_api`, `jj`.
 
 ## Conversational Style
 
