@@ -10,11 +10,11 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import cast
 
+from video_transcriber.backends import get_backend
 from video_transcriber.errors import TranscriberError
 from video_transcriber.formats import OutputFormat, render_transcript
 from video_transcriber.media import prepare_media
-from video_transcriber.models import SUPPORTED_MODELS
-from video_transcriber.phonon import transcribe
+from video_transcriber.models import SUPPORTED_MODELS, get_configured_model
 from video_transcriber.setup import run_setup
 
 
@@ -69,10 +69,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "setup":
             run_setup(args.model)
             return 0
+        model = get_configured_model()
+        backend = get_backend(model.backend)
         print("Preparing audio...", file=sys.stderr)
         media = prepare_media(args.input, args.cache_dir)
-        print("Transcribing with Phonon-2...", file=sys.stderr)
-        transcript = transcribe(media.audio_path)
+        print(f"Transcribing with {model.display_name}...", file=sys.stderr)
+        transcript = backend.transcribe(media.audio_path, model)
         rendered = render_transcript(transcript, media, cast(OutputFormat, args.format))
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -82,7 +84,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             sys.stdout.write(rendered)
         if transcript.truncated:
             print(
-                "Warning: Phonon-2 truncated at least one audio window.",
+                f"Warning: {model.display_name} truncated at least one audio window.",
                 file=sys.stderr,
             )
     except (TranscriberError, OSError) as error:

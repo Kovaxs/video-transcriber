@@ -10,6 +10,7 @@ const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const phonon = {
   model_id: "phonon-2",
   display_name: "Phonon-2",
+  backend: "fermion",
   languages: [{ code: "en", name: "English" }],
   download_size_mb: 158,
   recommended: true,
@@ -69,7 +70,7 @@ test("setup installs from its own package and uses a Pi dialog", async () => {
   ]);
   assert.ok(h.calls.every(({ options }) => options.cwd === packageRoot));
   assert.equal(h.dialogs.length, 1);
-  assert.match(h.dialogs[0].title, /English only/);
+  assert.match(h.dialogs[0].title, /all supported languages/);
   assert.match(h.dialogs[0].options[0], /Phonon-2 \(recommended\).*English.*158 MB/);
   assert.match(h.notices.at(-1).message, /Setup is complete/);
   assert.equal(h.statuses.at(-1).value, undefined);
@@ -87,6 +88,7 @@ test("the model selection comes from the CLI catalog", async () => {
   await h.run();
   assert.match(h.dialogs[0].options[0], /Phonon-2 \(recommended\)/);
   assert.match(h.dialogs[0].options[1], /English, German/);
+  assert.ok(!h.dialogs[0].title.includes("Phonon-2"));
   assert.deepEqual(h.calls.at(-1).args, ["setup", "--model", "test-model"]);
 });
 

@@ -6,6 +6,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 interface CatalogModel {
   model_id: string;
   display_name: string;
+  backend: string;
   languages: { code: string; name: string }[];
   download_size_mb: number;
   recommended: boolean;
@@ -20,7 +21,7 @@ export default function videoSetup(pi: ExtensionAPI): void {
     description: "Install video-transcriber and select a local speech model",
     handler: async (args, ctx) => {
       if (!ctx.hasUI) {
-        throw new Error("/video-setup needs Pi dialogs. Use video-transcriber setup --model phonon-2 in a terminal.");
+        throw new Error("/video-setup needs Pi dialogs. Use video-transcriber setup in a terminal.");
       }
       if (args.trim()) {
         ctx.ui.notify("Use /video-setup without arguments. Select a model in the dialog.", "error");
@@ -65,7 +66,7 @@ export default function videoSetup(pi: ExtensionAPI): void {
           return `${model.display_name}${recommendation} — Languages: ${languages} — ${model.download_size_mb} MB`;
         });
         ctx.ui.setStatus("video-setup", undefined);
-        const choice = await ctx.ui.select("Select a speech model. Phonon-2 supports English only.", options);
+        const choice = await ctx.ui.select("Select a speech model. Each option lists all supported languages.", options);
         if (choice === undefined) {
           ctx.ui.notify("Setup cancelled. The CLI is installed. No model download started.", "info");
           return;

@@ -86,13 +86,27 @@ video-transcriber/
 ├── src/video_transcriber/
 │   ├── cli.py       command-line entry point
 │   ├── media.py     URL parsing, metadata, audio download, local file conversion
-│   ├── phonon.py    Speech model transcription and data types
 │   ├── models.py    Supported model catalog and user selection
+│   ├── ports.py     SpeechBackend protocol
+│   ├── transcript.py  Shared transcript data types
+│   ├── backends.py  Approved backend registry
+│   ├── adapters/
+│   │   └── fermion.py  Fermion commands and output conversion
 │   ├── setup.py     Dependency installation and model download
 │   ├── formats.py   TXT, SRT, VTT, JSON output
 │   └── errors.py    Shared command-line errors
 └── tests/
 ```
+
+### Speech backend boundary
+
+- Use the `SpeechBackend` protocol in `ports.py` for model download and transcription.
+- Keep transcript data types in `transcript.py`. Output formats must not depend on an adapter.
+- Keep vendor commands, imports, and output conversion inside the adapter.
+- Register each backend explicitly in `backends.py`. Do not load arbitrary plugins from user configuration.
+- Add models through the catalog. Each model must declare its backend ID, backend model name, and all supported languages.
+- Test application behavior with a fake backend. Unit tests must not download or load a model.
+- Keep Phonon-2 as the only supported model until the maintainer approves another model.
 
 ### Development machine
 

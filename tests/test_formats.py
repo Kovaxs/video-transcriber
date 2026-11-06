@@ -4,7 +4,7 @@ import json
 
 from video_transcriber.formats import render_transcript
 from video_transcriber.media import Media
-from video_transcriber.phonon import Transcript
+from video_transcriber.transcript import Transcript
 
 
 def test_txt_output(transcript: Transcript, media: Media) -> None:

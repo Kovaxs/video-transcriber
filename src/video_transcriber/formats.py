@@ -6,7 +6,7 @@ import json
 from typing import Literal
 
 from video_transcriber.media import Media
-from video_transcriber.phonon import Transcript
+from video_transcriber.transcript import Transcript
 
 OutputFormat = Literal["txt", "srt", "vtt", "json"]
 

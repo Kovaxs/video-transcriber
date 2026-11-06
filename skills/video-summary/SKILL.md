@@ -1,6 +1,6 @@
 ---
 name: video-summary
-description: Transcribe a YouTube video, a HackerTube video, another supported URL, or a local media file. Write a structured, researched summary with answers, new information, mechanisms, context, implications, and an opinion. Use provider captions when they exist. Use the local video-transcriber CLI and Phonon-2 when captions do not exist. Requires an explicit slash command.
+description: Transcribe a YouTube video, a HackerTube video, another supported URL, or a local media file. Write a structured, researched summary with answers, new information, mechanisms, context, implications, and an opinion. Use provider captions when they exist. Use the local video-transcriber CLI and the selected catalog model when captions do not exist. Requires an explicit slash command.
 disable-model-invocation: true
 ---
 

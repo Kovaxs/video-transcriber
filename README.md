@@ -274,6 +274,111 @@ Setup needs network access for missing packages and model files. URL inputs need
 
 The summary has a different privacy boundary. Pi sends transcript text to its configured language model. Web research also sends queries to external services. Local transcription does not make the summary workflow fully local.
 
+## Model architecture
+
+The Python code uses a port-and-adapter design. A **port** defines the operations that the application needs. An **adapter** implements those operations for a specific backend.
+
+The application uses the `SpeechBackend` port. It does not construct Fermion commands or parse vendor output.
+
+```mermaid
+flowchart LR
+    Catalog["Model catalog: backend ID and model name"] --> Registry["Explicit backend registry"]
+    Registry -->|selects| Fermion["FermionAdapter"]
+    CLI["Transcription CLI"] -->|uses| Port["SpeechBackend port"]
+    Setup["Model setup"] -->|uses| Port
+    Fermion -->|implements| Port
+    Fake["Fake backend in unit tests"] -->|implements| Port
+    Port --> Shared["Shared Transcript, Segment, and Word types"]
+    Formats["TXT, SRT, VTT, JSON"] -->|reads| Shared
+```
+
+### Files and responsibilities
+
+| File | Responsibility |
+|---|---|
+| `src/video_transcriber/models.py` | Define approved models, backend IDs, languages, and the saved selection. |
+| `src/video_transcriber/ports.py` | Define the `SpeechBackend` interface with Python `Protocol`. |
+| `src/video_transcriber/transcript.py` | Define backend-independent transcript data. |
+| `src/video_transcriber/backends.py` | Connect each approved backend ID to its adapter. |
+| `src/video_transcriber/adapters/fermion.py` | Run Fermion commands and convert their output to shared transcript data. |
+| `src/video_transcriber/setup.py` | Select a catalog model, install common tools, and ask its adapter to download the model. |
+| `src/video_transcriber/cli.py` | Select the adapter, prepare audio, and request transcription. |
+| `src/video_transcriber/formats.py` | Write shared transcript data to the requested format. |
+
+The port has 2 operations:
+
+```python
+from pathlib import Path
+from typing import Protocol
+
+from video_transcriber.models import ModelSpec
+from video_transcriber.transcript import Transcript
+
+
+class SpeechBackend(Protocol):
+    def download(self, model: ModelSpec) -> None: ...
+
+    def transcribe(self, audio_path: Path, model: ModelSpec) -> Transcript: ...
+```
+
+An adapter needs no base class. Its method signatures must match the protocol. The type checker checks each registered adapter against the port.
+
+The `download` operation downloads and verifies model files, or reuses their cache. The `transcribe` operation accepts 16 kHz mono WAV audio and runs speech recognition locally.
+
+Each adapter converts its own output to `Transcript`. That type contains text, subtitle segments, word timestamps, model details, timing measurements, and a truncation flag.
+
+Adapters must report expected failures with `TranscriberError`. Setup saves the model selection only after the download succeeds. Unknown backend IDs fail before dependency installation or audio preparation.
+
+### Model ID versus backend ID
+
+A catalog entry contains 3 separate identifiers:
+
+| Field | Example | Meaning |
+|---|---|---|
+| `model_id` | `phonon-2` | The public ID for CLI arguments and saved configuration. |
+| `backend` | `BackendId.FERMION` | The approved backend that selects the adapter. |
+| `backend_name` | `phonon-2` | The model name that this backend accepts. |
+
+The configuration stores only `model_id`. The application resolves the backend from the catalog on each request. Users cannot select arbitrary model names or import adapter code through configuration.
+
+The registry is explicit. The project does not scan plugins or load user-supplied Python module names.
+
+### Add a model to an existing backend
+
+Use this path when an existing adapter already supports the model and its transcript data.
+
+1. Verify the backend model name, input requirements, download size, license, and supported languages.
+2. Add a `ModelSpec` entry in `src/video_transcriber/models.py`.
+3. Set its `backend` to an existing `BackendId`.
+4. Set its `backend_name` to the verified backend model name.
+5. Record every supported language and the verified download size.
+6. Add the entry to `SUPPORTED_MODELS`. Keep exactly 1 recommended model.
+7. Add tests for selection, backend model names, downloads, and transcript output.
+8. Update the supported model table in this README.
+
+The catalog command, CLI model choices, Pi dialog, and saved selection use the new entry automatically. The CLI and setup need no model-specific branch.
+
+Phonon-2 remains the only supported model in this version. A new model still requires a maintainer review and an explicit scope change.
+
+### Add a new backend
+
+Use this path when the model needs another runtime, command, or output conversion.
+
+1. Add an adapter under `src/video_transcriber/adapters/`.
+2. Implement both `SpeechBackend` methods with the exact port signatures.
+3. Convert vendor output to the shared transcript types inside the adapter.
+4. Keep backend commands, model caches, and vendor imports inside the adapter.
+5. Add an approved identifier to `BackendId` in `models.py`.
+6. Import and register the adapter in `backends.py`.
+7. Add the model catalog entry as described above.
+8. Pin any new Python dependency to an exact version with `uv`.
+9. Test the adapter with mocked commands or a fake vendor API.
+10. Test setup and transcription through the port. Network and model tests require the `integration` marker.
+
+Output formats and media preparation stay unchanged. Backend-specific JSON parsing belongs in the adapter, not in the CLI or shared transcript types.
+
+The unit tests include a fake second backend. They check setup, saved selection, adapter selection, progress messages, and JSON output without real models or network access.
+
 ## Configuration and cache
 
 The setup saves the selected model in `~/.config/video-transcriber/config.json`. The `XDG_CONFIG_HOME` variable changes the parent configuration directory. The `VIDEO_TRANSCRIBER_CONFIG_DIR` variable changes the full configuration directory.

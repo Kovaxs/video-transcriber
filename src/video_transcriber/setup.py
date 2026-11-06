@@ -8,6 +8,7 @@ from collections.abc import Callable
 from importlib import metadata
 from pathlib import Path
 
+from video_transcriber.backends import get_backend
 from video_transcriber.errors import TranscriberError
 from video_transcriber.models import (
     SUPPORTED_MODELS,
@@ -16,7 +17,6 @@ from video_transcriber.models import (
     get_model,
     save_selected_model,
 )
-from video_transcriber.phonon import download_model
 
 
 def select_model(input_fn: Callable[[str], str]) -> ModelSpec:
@@ -30,8 +30,9 @@ def select_model(input_fn: Callable[[str], str]) -> ModelSpec:
             f"   Languages: {languages}\n"
             f"   Download: {model.download_size_mb} MB"
         )
-    if len(SUPPORTED_MODELS) == 1:
-        print("Phonon-2 transcribes English only.")
+    if len(SUPPORTED_MODELS) == 1 and len(SUPPORTED_MODELS[0].languages) == 1:
+        model = SUPPORTED_MODELS[0]
+        print(f"{model.display_name} transcribes {model.languages[0].name} only.")
 
     default_index = SUPPORTED_MODELS.index(default_model()) + 1
     while True:
@@ -60,10 +61,11 @@ def run_setup(
 ) -> ModelSpec:
     """Install setup requirements, download a model, and save the selection."""
     model = get_model(model_id) if model_id is not None else select_model(input_fn)
+    backend = get_backend(model.backend)
     print(f"Selected model: {model.display_name}")
     _ensure_tools()
     print(f"Downloading {model.display_name}. A cached model needs no download.")
-    download_model(model)
+    backend.download(model)
     config_path = save_selected_model(model, config_dir)
     print(f"Saved the model selection to {config_path}")
     print("Setup is complete.")

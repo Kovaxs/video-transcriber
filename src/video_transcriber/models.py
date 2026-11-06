@@ -6,10 +6,17 @@ import json
 import os
 import tempfile
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import cast
 
 from video_transcriber.errors import TranscriberError
+
+
+class BackendId(StrEnum):
+    """Identify each maintainer-approved local speech backend."""
+
+    FERMION = "fermion"
 
 
 @dataclass(frozen=True)
@@ -26,6 +33,7 @@ class ModelSpec:
 
     model_id: str
     display_name: str
+    backend: BackendId
     backend_name: str
     languages: tuple[Language, ...]
     download_size_mb: int
@@ -35,6 +43,7 @@ class ModelSpec:
 PHONON_2 = ModelSpec(
     model_id="phonon-2",
     display_name="Phonon-2",
+    backend=BackendId.FERMION,
     backend_name="phonon-2",
     languages=(Language(code="en", name="English"),),
     download_size_mb=158,

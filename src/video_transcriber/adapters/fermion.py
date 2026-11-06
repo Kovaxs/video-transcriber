@@ -1,4 +1,4 @@
-"""Run supported speech models through the local fermion command."""
+"""Adapt the local Fermion command to the speech backend port."""
 
 from __future__ import annotations
 
@@ -6,88 +6,63 @@ import json
 import shutil
 import subprocess
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 from video_transcriber.errors import TranscriberError
-from video_transcriber.models import ModelSpec, get_configured_model
+from video_transcriber.models import ModelSpec
+from video_transcriber.transcript import Segment, Transcript, Word
 
 
-@dataclass(frozen=True)
-class Word:
-    """Store the text and time range of one word."""
+class FermionAdapter:
+    """Run approved Fermion models and convert their JSON to shared data."""
 
-    text: str
-    start: float
-    end: float
+    def download(self, model: ModelSpec) -> None:
+        """Download and verify a model through Fermion."""
+        command = [
+            _fermion_executable(),
+            "transcribe",
+            model.backend_name,
+            "--download-only",
+            "unused.wav",
+        ]
+        try:
+            process = subprocess.run(command, check=False)
+        except FileNotFoundError as error:
+            raise TranscriberError(
+                "The fermion executable is not available."
+            ) from error
+        if process.returncode != 0:
+            raise TranscriberError(f"Could not download {model.display_name}.")
 
-
-@dataclass(frozen=True)
-class Segment:
-    """Store one subtitle-ready transcript segment."""
-
-    segment_id: int
-    start: float
-    end: float
-    text: str
-
-
-@dataclass(frozen=True)
-class Transcript:
-    """Store a local speech transcript and its timing data."""
-
-    text: str
-    model: str
-    engine: str
-    duration_seconds: float
-    decode_seconds: float
-    wall_seconds: float
-    segments: tuple[Segment, ...]
-    words: tuple[Word, ...]
-    truncated: bool
-
-
-def transcribe(audio_path: Path, model: ModelSpec | None = None) -> Transcript:
-    """Transcribe an audio file with a configured local speech model."""
-    selected_model = model or get_configured_model()
-    command = [
-        _fermion_executable(),
-        "transcribe",
-        selected_model.backend_name,
-        str(audio_path),
-        "--json",
-    ]
-    try:
-        process = subprocess.run(command, capture_output=True, text=True, check=False)
-    except FileNotFoundError as error:
-        raise TranscriberError("The fermion executable is not available.") from error
-    if process.returncode != 0:
-        detail = process.stderr.strip() or process.stdout.strip() or "No error output."
-        message = f"{selected_model.display_name} transcription failed.\n{detail}"
-        raise TranscriberError(message)
-    try:
-        value: object = json.loads(process.stdout)
-    except json.JSONDecodeError as error:
-        raise TranscriberError("The model returned invalid JSON.") from error
-    return _parse_transcript(value)
-
-
-def download_model(model: ModelSpec) -> None:
-    """Download and verify a supported model through fermion."""
-    command = [
-        _fermion_executable(),
-        "transcribe",
-        model.backend_name,
-        "--download-only",
-        "unused.wav",
-    ]
-    try:
-        process = subprocess.run(command, check=False)
-    except FileNotFoundError as error:
-        raise TranscriberError("The fermion executable is not available.") from error
-    if process.returncode != 0:
-        raise TranscriberError(f"Could not download {model.display_name}.")
+    def transcribe(self, audio_path: Path, model: ModelSpec) -> Transcript:
+        """Transcribe a WAV file and return backend-independent data."""
+        command = [
+            _fermion_executable(),
+            "transcribe",
+            model.backend_name,
+            str(audio_path),
+            "--json",
+        ]
+        try:
+            process = subprocess.run(
+                command, capture_output=True, text=True, check=False
+            )
+        except FileNotFoundError as error:
+            raise TranscriberError(
+                "The fermion executable is not available."
+            ) from error
+        if process.returncode != 0:
+            detail = (
+                process.stderr.strip() or process.stdout.strip() or "No error output."
+            )
+            message = f"{model.display_name} transcription failed.\n{detail}"
+            raise TranscriberError(message)
+        try:
+            value: object = json.loads(process.stdout)
+        except json.JSONDecodeError as error:
+            raise TranscriberError("The model returned invalid JSON.") from error
+        return _parse_transcript(value)
 
 
 def _fermion_executable() -> str:

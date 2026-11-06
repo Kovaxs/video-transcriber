@@ -4,8 +4,27 @@ from pathlib import Path
 
 import pytest
 
+from tests.fakes import FakeBackend
+from video_transcriber import backends
 from video_transcriber.media import Media
-from video_transcriber.phonon import Segment, Transcript, Word
+from video_transcriber.models import BackendId
+from video_transcriber.transcript import Segment, Transcript, Word
+
+
+@pytest.fixture(autouse=True)
+def isolate_model_configuration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Keep unit tests independent of the real user model selection."""
+    monkeypatch.setenv("VIDEO_TRANSCRIBER_CONFIG_DIR", str(tmp_path / "config"))
+
+
+@pytest.fixture
+def backend(transcript: Transcript, monkeypatch: pytest.MonkeyPatch) -> FakeBackend:
+    """Inject a test double through the backend registry."""
+    fake = FakeBackend(transcript)
+    monkeypatch.setattr(backends, "_BACKENDS", {BackendId.FERMION: fake})
+    return fake
 
 
 @pytest.fixture
