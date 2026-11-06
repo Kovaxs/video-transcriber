@@ -13,14 +13,33 @@ Tell the user to run `/video-setup` in Pi for the setup. The extension opens a P
 
 If the argument is exactly `setup`, give that command and stop. Do not run an interactive CLI prompt through an agent tool. Do not transcribe a video or do web research.
 
+## Tool execution through codemode
+
+Use `codemode` for every agent tool action in this skill. Call shell commands, file reads, and research tools through `tools.<name>()` inside its scripts. Do not call those tools directly.
+
+If `codemode` is unavailable, tell the user to start Pi with `pi --tools +codemode`. Stop until the tool is available.
+
+- Batch independent calls with `Promise.allSettled()`. For example, get captions and metadata in parallel.
+- Keep dependent steps in order. Create the temporary path before transcription. Finish transcription before the transcript read.
+- Check each settled result. Also check `exit_code` for shell commands and error fields for other tool results.
+- Await every tool call before the script ends. Do not start another `codemode` call from a script.
+- Use `text()` to return the full transcript text and necessary source metadata to the agent. Read large files in chunks.
+- Do not return duplicate word arrays or segment arrays unless the user needs them. Never shorten the transcript before the agent reads it.
+- Keep research results in the script when possible. Return relevant passages, source URLs, and contradictions instead of duplicate page content.
+- Write the summary only after the agent reads the full transcript and the research evidence.
+
+The shell examples below describe commands for `tools.bash()` inside `codemode`. They do not permit direct agent tool calls.
+
+The `/video-setup` extension uses `pi.exec()` and Pi dialogs directly. It does not use an agent model call or `codemode`.
+
 ## Workflow
 1. **Choose the transcript path.** For a YouTube URL, use the Yes path in "Fetching captions". For a HackerTube URL, another URL, or a local media file, use the No path below. If YouTube has no captions, use the No path.
 2. **Use the Yes path when captions exist.** Extract the 11-character video ID from `v=`, `youtu.be/`, `shorts/`, or `embed/`. Get the captions and read the whole file in chunks. Get the title, channel, upload date, and duration with `yt-dlp`.
 3. **Use the No path when captions do not exist.** Create a temporary JSON path with `mktemp /tmp/video-transcriber.XXXXXX.json`. Then run:
    `video-transcriber transcribe <URL-or-local-path> --format json --output <temporary-path>`
-   Read the whole JSON file in chunks. The `text` field contains the transcript. The `source` field contains the metadata. Do not summarize only the first chunk.
-4. **List the user's concrete questions** from their message. If there are none, skip section 1 of the template.
-5. **Research the topic on the web before writing** (`web_search` with 2–4 varied queries, then `fetch_content` on the best sources). Do this twice:
+   Read the whole JSON file in chunks through `codemode`. The `text` field contains the transcript. The `source` field contains the metadata. Return the full transcript text and source metadata to the agent. Report a true `truncated` flag. Do not summarize only the first chunk.
+4. **Check the requested output.** For a transcript-only request, return the full transcript and stop. Do not do web research. Otherwise, list the user's concrete questions. If there are none, skip section 1 of the template.
+5. **Research the topic on the web before writing.** Use `web_search` with 2–4 varied queries through `codemode`. Then use `fetch_content` through `codemode` on the best sources. Do this twice:
    - For *What's new*: what is announced or released, and does outside coverage confirm or contradict the video's claims? Find the primary source (repo, paper, blog, press release).
    - For *Behind the news*: background, reactions, criticism, earlier events, who said what, and the competitive or regulatory context.
 6. **Write the summary** in the template below. Mark each fact by its source: "the video says…" when it comes only from the transcript, and name the source for web-sourced facts. If the web contradicts the video, say so.
@@ -103,7 +122,7 @@ youtube_transcript_api <VIDEO_ID> --languages en --translate es --format text
 ```
 Options: `--languages en es` (priority order), `--exclude-generated`, `--exclude-manually-created`, `--http-proxy URL`, `--https-proxy URL`.
 
-About 20k characters per 20 minutes of video. Read in chunks with `read` offset/limit.
+About 20k characters per 20 minutes of video. Read in chunks with `tools.read()` inside `codemode`. Use its `offset` and `limit` arguments.
 
 ## Why not the alternatives
 1. `fetch_content` on a YouTube URL fails unless a Chromium Google login or `GEMINI_API_KEY` is available.
