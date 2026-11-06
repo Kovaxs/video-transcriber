@@ -1,45 +1,74 @@
 # video-transcriber
 
-`video-transcriber` changes a video URL or a local media file into a transcript. It runs Phonon-2 locally through MLX on Apple silicon. It does not send audio to an external transcription service.
+`video-transcriber` changes a video URL or a local media file into a transcript. It runs speech recognition locally on Apple silicon. It does not send audio to an external transcription service.
 
-The current version supports English transcription. It accepts HTTP and HTTPS URLs that yt-dlp supports. It also accepts local audio and video files that ffmpeg supports.
+The tool accepts HTTP and HTTPS URLs that yt-dlp supports. It also accepts local audio and video files that ffmpeg supports.
 
 ## Requirements
 
 - macOS on Apple silicon.
-- Python 3.12. `uv` can install this Python version.
-- ffmpeg.
-- The Phonon-2 model in the local Fermion cache.
+- `uv` for Python commands and Python 3.12.
+- Pi for the skill.
+- Homebrew if ffmpeg is missing.
 
-Install ffmpeg with Homebrew:
+Install `uv` with the instructions at https://docs.astral.sh/uv/.
+
+## Install with Pi
+
+Install the Pi package:
 
 ```bash
-brew install ffmpeg
+pi install https://github.com/Kovaxs/video-transcriber
 ```
 
-## Install
+Run the setup command in Pi:
 
-Install the CLI from GitHub:
+```text
+/skill:video-summary setup
+```
+
+The setup installs the Python CLI if it is missing. It also installs missing caption tools and ffmpeg. Then it asks for a speech model and downloads that model.
+
+The setup uses `uv tool` for Python commands. It uses Homebrew for ffmpeg. The `fermion` command downloads and verifies the model weights.
+
+## Manual installation
+
+Install the CLI without Pi:
 
 ```bash
 uv tool install --python 3.12 \
   git+https://github.com/Kovaxs/video-transcriber.git
 ```
 
-Install the Pi skill separately:
+Run the interactive setup:
 
 ```bash
-pi install https://github.com/Kovaxs/video-transcriber
+video-transcriber setup
 ```
 
-For development, use the local environment:
+For a non-interactive setup, select a catalog model by ID:
 
 ```bash
-uv sync
-uv run video-transcriber --help
+video-transcriber setup --model phonon-2
 ```
 
-## Use
+## Supported models
+
+| Model | Catalog ID | Languages | Download | Status |
+|---|---|---|---:|---|
+| Phonon-2 | `phonon-2` | English only | 158 MB | Recommended |
+
+Phonon-2 runs locally through MLX. It provides punctuation, capitalization, segments, and word timestamps.
+
+The CLI accepts only models from this catalog. It does not accept arbitrary model names. A maintainer must add each supported model and all its languages.
+
+To request another model, open an issue:
+
+https://github.com/Kovaxs/video-transcriber/issues
+
+Include the model name, its languages, and a link to its documentation.
+
+## Transcribe
 
 Write plain text to standard output:
 
@@ -69,25 +98,35 @@ Use `--cache-dir` to select another audio cache:
 video-transcriber transcribe ./talk.mp4 --cache-dir /tmp/media-cache
 ```
 
-## Cache
+## Pi skill
+
+Transcribe and summarize a video:
+
+```text
+/skill:video-summary <video-url>
+```
+
+Use a local file path instead of a URL for a local audio or video file. The skill uses provider captions when they exist. It uses local transcription when captions do not exist. It reads the full transcript before it writes a researched summary.
+
+## Configuration and cache
+
+The setup saves the selected model in `~/.config/video-transcriber/config.json`. The `XDG_CONFIG_HOME` variable changes the parent configuration directory. The `VIDEO_TRANSCRIBER_CONFIG_DIR` variable changes the full configuration directory.
+
+Without a configuration file, the CLI uses the recommended model.
 
 The default audio cache is `~/.cache/video-transcriber/audio`. The `XDG_CACHE_HOME` variable changes the parent cache directory. The `VIDEO_TRANSCRIBER_CACHE_DIR` variable changes the full cache directory.
 
-Each URL has a separate cache entry. Each local file has a cache entry based on its path, size, and modification time. A later run reuses unchanged audio.
+Each URL has a separate cache entry. Each local file has a cache entry based on its path, size, and modification time. A later run reuses unchanged audio. Failed downloads and conversions do not create a cached WAV file.
 
-Phonon-2 uses the separate Fermion model cache. The default path is `~/.cache/fermion`.
-
-## Pi skill
-
-Load the skill explicitly:
-
-```text
-/skill:youtube-captions <video-url>
-```
-
-The skill uses provider captions when they exist. It uses this CLI when captions do not exist. It reads the full transcript before it writes a researched summary.
+The model uses the separate Fermion cache. Its default path is `~/.cache/fermion`.
 
 ## Development
+
+Create the local environment:
+
+```bash
+uv sync
+```
 
 Run the unit tests:
 
@@ -103,4 +142,4 @@ uv run ruff format --check
 uv run pyright
 ```
 
-Unit tests do not use the network or the speech model. Integration tests use the `integration` marker and run only on request.
+Unit tests do not use the network or a speech model. Integration tests use the `integration` marker and run only on request.

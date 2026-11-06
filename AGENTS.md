@@ -45,6 +45,7 @@ skill: read the full transcript, do web research, write the summary
 
 - Use English transcription only. Do this also when the user asks for a different language. The summary skill can write the summary in the language of the user.
 - Use Phonon-2 as the only speech recognition model. Phonon-2 is a 164 MB, English-only, 2.1-bit quantized version of NVIDIA Parakeet TDT 0.6B v3. It runs on Apple silicon through MLX. Model page: https://www.fermionresearch.com/models/phonon-2/
+- Keep supported models in the model catalog. Record every supported language in the catalog. Do not accept arbitrary model names. A maintainer must add each new model.
 - Use yt-dlp to download audio. Start with HackerTube URLs. Extract the YouTube video ID from the HackerTube URL. Other providers that yt-dlp supports must work with no special code where possible.
 - Accept a local audio file or a local video file as input. Use ffmpeg to extract the audio. Use the file name as the title in the metadata.
 - Test the full chain with the HackerTube URL above. That video ("The Iroquois Confederacy", Historia Civilis) has manually created English captions on YouTube. Use these captions as the reference to measure the word error rate (WER) of the No path.
@@ -55,19 +56,19 @@ skill: read the full transcript, do web research, write the summary
 - Whisper as the model for languages that are not English.
 - Translation.
 - Automatic choice between the Yes path and the No path. For now, the skill makes this choice.
-- Automatic installation of the model and dependencies. A later setup command will do this work.
 
 ### Repository and skill
 
 The repository and the skill have different jobs. Keep them separate.
 
 - **Repository:** deterministic work. URL parsing, audio download, model calls, output formats, caches, temporary files, errors, tests. The Python code must not use an LLM. It must not know about pi.
-- **Pi package:** `package.json` makes the repository a pi package. It exposes `skills/` to pi. Install command: `pi install https://github.com/Kovaxs/video-transcriber`. This command installs the Pi skill. Install the Python CLI separately with `uv tool install`. Do not put a copy of the skill in `~/.agents/skills/`.
-- **Skill** (`skills/youtube-captions/SKILL.md`): agent workflow. Choose the path, call the CLI of this repository for the No path, read the full transcript, do web research, write the summary with the template and the ASD-STE100 rules.
+- **Pi package:** `package.json` makes the repository a pi package. It exposes `skills/` to pi. Install command: `pi install https://github.com/Kovaxs/video-transcriber`. This command installs the Pi skill. Run `/skill:video-summary setup` to install the Python CLI, dependencies, and model. Do not put a copy of the skill in `~/.agents/skills/`.
+- **Skill** (`skills/video-summary/SKILL.md`): agent workflow. Choose the path, call the CLI of this repository for the No path, read the full transcript, do web research, write the summary with the template and the ASD-STE100 rules.
 
 Target CLI:
 
 ```bash
+video-transcriber setup
 video-transcriber transcribe <URL> --format srt
 video-transcriber transcribe ./talk.mp4 --format srt
 ```
@@ -80,11 +81,13 @@ video-transcriber/
 ├── README.md
 ├── AGENTS.md
 ├── package.json     pi package manifest (skills only)
-├── skills/youtube-captions/SKILL.md
+├── skills/video-summary/SKILL.md
 ├── src/video_transcriber/
 │   ├── cli.py       command-line entry point
 │   ├── media.py     URL parsing, metadata, audio download, local file conversion
-│   ├── phonon.py    Phonon-2 transcription and data types
+│   ├── phonon.py    Speech model transcription and data types
+│   ├── models.py    Supported model catalog and user selection
+│   ├── setup.py     Dependency installation and model download
 │   ├── formats.py   TXT, SRT, VTT, JSON output
 │   └── errors.py    Shared command-line errors
 └── tests/
