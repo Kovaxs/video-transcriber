@@ -8,6 +8,7 @@ import pytest
 
 from video_transcriber import phonon
 from video_transcriber.errors import TranscriberError
+from video_transcriber.models import PHONON_2
 
 
 def phonon_payload() -> dict[str, object]:
@@ -25,6 +26,11 @@ def phonon_payload() -> dict[str, object]:
         ],
         "truncated": False,
     }
+
+
+@pytest.fixture(autouse=True)
+def use_default_test_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(phonon, "get_configured_model", lambda: PHONON_2)
 
 
 def test_transcribe_calls_fermion_and_parses_output(
@@ -85,6 +91,29 @@ def test_transcribe_rejects_invalid_json(
 
     with pytest.raises(TranscriberError, match="invalid JSON"):
         phonon.transcribe(tmp_path / "audio.wav")
+
+
+def test_download_model_uses_catalog_backend(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run(command: list[str], check: bool) -> subprocess.CompletedProcess[bytes]:
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(phonon, "_fermion_executable", lambda: "fermion")
+    monkeypatch.setattr(phonon.subprocess, "run", fake_run)
+    phonon.download_model(PHONON_2)
+    assert commands == [
+        [
+            "fermion",
+            "transcribe",
+            "phonon-2",
+            "--download-only",
+            "unused.wav",
+        ]
+    ]
 
 
 def test_transcribe_rejects_missing_word_timestamps(

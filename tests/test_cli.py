@@ -8,6 +8,7 @@ import pytest
 from video_transcriber import cli
 from video_transcriber.errors import TranscriberError
 from video_transcriber.media import Media
+from video_transcriber.models import PHONON_2, ModelSpec
 from video_transcriber.phonon import Transcript
 
 
@@ -60,6 +61,20 @@ def test_cli_writes_json_file(
     value: object = json.loads(output.read_text(encoding="utf-8"))
     assert isinstance(value, dict)
     assert value["model"] == "FermionResearch/Phonon-2"
+
+
+def test_cli_runs_setup_with_catalog_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected: list[str | None] = []
+
+    def fake_setup(model_id: str | None) -> ModelSpec:
+        selected.append(model_id)
+        return PHONON_2
+
+    monkeypatch.setattr(cli, "run_setup", fake_setup)
+    assert cli.main(["setup", "--model", "phonon-2"]) == 0
+    assert selected == ["phonon-2"]
 
 
 def test_cli_reports_expected_error(

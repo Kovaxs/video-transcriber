@@ -1,4 +1,4 @@
-"""Run Phonon-2 through the local fermion command."""
+"""Run supported speech models through the local fermion command."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import cast
 
 from video_transcriber.errors import TranscriberError
+from video_transcriber.models import ModelSpec, get_configured_model
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ class Segment:
 
 @dataclass(frozen=True)
 class Transcript:
-    """Store a Phonon-2 transcript and its timing data."""
+    """Store a local speech transcript and its timing data."""
 
     text: str
     model: str
@@ -47,12 +48,13 @@ class Transcript:
     truncated: bool
 
 
-def transcribe(audio_path: Path) -> Transcript:
-    """Transcribe an audio file with the cached local Phonon-2 model."""
+def transcribe(audio_path: Path, model: ModelSpec | None = None) -> Transcript:
+    """Transcribe an audio file with a configured local speech model."""
+    selected_model = model or get_configured_model()
     command = [
         _fermion_executable(),
         "transcribe",
-        "phonon-2",
+        selected_model.backend_name,
         str(audio_path),
         "--json",
     ]
@@ -62,12 +64,30 @@ def transcribe(audio_path: Path) -> Transcript:
         raise TranscriberError("The fermion executable is not available.") from error
     if process.returncode != 0:
         detail = process.stderr.strip() or process.stdout.strip() or "No error output."
-        raise TranscriberError(f"Phonon-2 transcription failed.\n{detail}")
+        message = f"{selected_model.display_name} transcription failed.\n{detail}"
+        raise TranscriberError(message)
     try:
         value: object = json.loads(process.stdout)
     except json.JSONDecodeError as error:
-        raise TranscriberError("Phonon-2 returned invalid JSON.") from error
+        raise TranscriberError("The model returned invalid JSON.") from error
     return _parse_transcript(value)
+
+
+def download_model(model: ModelSpec) -> None:
+    """Download and verify a supported model through fermion."""
+    command = [
+        _fermion_executable(),
+        "transcribe",
+        model.backend_name,
+        "--download-only",
+        "unused.wav",
+    ]
+    try:
+        process = subprocess.run(command, check=False)
+    except FileNotFoundError as error:
+        raise TranscriberError("The fermion executable is not available.") from error
+    if process.returncode != 0:
+        raise TranscriberError(f"Could not download {model.display_name}.")
 
 
 def _fermion_executable() -> str:
@@ -83,14 +103,14 @@ def _fermion_executable() -> str:
 
 
 def _parse_transcript(value: object) -> Transcript:
-    data = _as_object(value, "Phonon-2 output")
+    data = _as_object(value, "output")
     segments = tuple(
         _parse_segment(item) for item in _as_array(data.get("segments"), "segments")
     )
     words = tuple(_parse_word(item) for item in _as_array(data.get("words"), "words"))
     truncated = data.get("truncated")
     if not isinstance(truncated, bool):
-        raise TranscriberError("Phonon-2 output has an invalid truncated flag.")
+        raise TranscriberError("The model output has an invalid truncated flag.")
     return Transcript(
         text=_as_string(data.get("text"), "text"),
         model=_as_string(data.get("model"), "model"),
@@ -108,7 +128,7 @@ def _parse_segment(value: object) -> Segment:
     data = _as_object(value, "segment")
     segment_id = _as_number(data.get("id"), "segment id")
     if not segment_id.is_integer():
-        raise TranscriberError("Phonon-2 output has an invalid segment ID.")
+        raise TranscriberError("The model output has an invalid segment ID.")
     return Segment(
         segment_id=int(segment_id),
         start=_as_number(data.get("start"), "segment start"),
@@ -128,25 +148,25 @@ def _parse_word(value: object) -> Word:
 
 def _as_object(value: object, context: str) -> dict[str, object]:
     if not isinstance(value, dict):
-        raise TranscriberError(f"Phonon-2 {context} is not a JSON object.")
+        raise TranscriberError(f"The model {context} is not a JSON object.")
     if not all(isinstance(key, str) for key in cast(dict[object, object], value)):
-        raise TranscriberError(f"Phonon-2 {context} has a non-string key.")
+        raise TranscriberError(f"The model {context} has a non-string key.")
     return cast(dict[str, object], value)
 
 
 def _as_array(value: object, context: str) -> list[object]:
     if not isinstance(value, list):
-        raise TranscriberError(f"Phonon-2 {context} is not a JSON array.")
+        raise TranscriberError(f"The model {context} is not a JSON array.")
     return cast(list[object], value)
 
 
 def _as_string(value: object, context: str) -> str:
     if not isinstance(value, str):
-        raise TranscriberError(f"Phonon-2 {context} is not a string.")
+        raise TranscriberError(f"The model {context} is not a string.")
     return value
 
 
 def _as_number(value: object, context: str) -> float:
     if isinstance(value, bool) or not isinstance(value, int | float):
-        raise TranscriberError(f"Phonon-2 {context} is not a number.")
+        raise TranscriberError(f"The model {context} is not a number.")
     return float(value)
