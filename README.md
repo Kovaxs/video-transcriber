@@ -428,3 +428,7 @@ uv run pyright
 ```
 
 Unit tests do not use the network or a speech model. Integration tests use the `integration` marker and run only on request.
+
+## TODO
+
+- [ ] Add a guide-style skill template, not only the news-style summary. A guide should cover steps, prerequisites, and reference sections instead of the "Behind the news" structure.
