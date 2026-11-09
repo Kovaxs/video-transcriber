@@ -63,7 +63,7 @@ The repository and the skill have different jobs. Keep them separate.
 
 - **Repository:** deterministic work. URL parsing, audio download, model calls, output formats, caches, temporary files, errors, tests. The Python code must not use an LLM. It must not know about pi.
 - **Pi package:** `package.json` makes the repository a pi package. It exposes `skills/` and `extensions/video-setup.ts` to pi. Install command: `pi install https://github.com/Kovaxs/video-transcriber`. This command installs the Pi skill and setup extension. Run `/video-setup` to select a model in a Pi dialog and install the Python CLI, dependencies, and model. Do not put a copy of the skill in `~/.agents/skills/`.
-- **Skill** (`skills/video-summary/SKILL.md`): agent workflow. Choose the path, call the CLI of this repository for the No path, read the full transcript, do web research, write the summary with the template and the ASD-STE100 rules.
+- **Skill** (`skills/video-summary/SKILL.md`): agent workflow. Choose the path, call the CLI of this repository for the No path, read the full transcript, do web research, choose a summary template from `skills/video-summary/templates/`, write the summary with the template and the ASD-STE100 rules.
 
 Target CLI:
 
@@ -82,7 +82,9 @@ video-transcriber/
 ├── AGENTS.md
 ├── package.json     pi package manifest (skill and setup extension)
 ├── extensions/video-setup.ts  Pi setup command and model dialog
-├── skills/video-summary/SKILL.md
+├── skills/video-summary/
+│   ├── SKILL.md     agent workflow and template choice
+│   └── templates/   news.md, guide.md summary templates
 ├── src/video_transcriber/
 │   ├── cli.py       command-line entry point
 │   ├── media.py     URL parsing, metadata, audio download, local file conversion

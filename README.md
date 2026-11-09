@@ -122,6 +122,22 @@ Transcribe and summarize a video:
 
 Use a local file path instead of a URL for a local audio or video file. The skill uses provider captions when they exist. It uses local transcription when captions do not exist. It reads the full transcript before it writes a researched summary.
 
+The skill has 2 summary templates:
+
+| Template | Use for | Sections |
+|---|---|---|
+| `news` | Announcements, releases, events, commentary | What's new, how it works, background, why it matters, opinion |
+| `guide` | Tutorials, how-to videos, walkthroughs | Goal, prerequisites, steps, result check, problems and fixes, reference, opinion |
+
+Give the template name as the first argument to choose a template:
+
+```text
+/skill:video-summary guide <video-url>
+/skill:video-summary news <video-url>
+```
+
+Without a template name, the skill chooses from the request and the transcript. A video that mainly teaches a task gets the `guide` template. To add a template, add a file in `skills/video-summary/templates/` and a row to the table in `SKILL.md`.
+
 ## How the tool works
 
 The project has 3 parts:
@@ -428,7 +444,3 @@ uv run pyright
 ```
 
 Unit tests do not use the network or a speech model. Integration tests use the `integration` marker and run only on request.
-
-## TODO
-
-- [ ] Add a guide-style skill template, not only the news-style summary. A guide should cover steps, prerequisites, and reference sections instead of the "Behind the news" structure.

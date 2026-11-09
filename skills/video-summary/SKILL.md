@@ -1,12 +1,14 @@
 ---
 name: video-summary
-description: Transcribe a YouTube video, a HackerTube video, another supported URL, or a local media file. Write a structured, researched summary with answers, new information, mechanisms, context, implications, and an opinion. Use provider captions when they exist. Use the local video-transcriber CLI and the selected catalog model when captions do not exist. Requires an explicit slash command.
+description: Transcribe a YouTube video, a HackerTube video, another supported URL, or a local media file. Write a structured, researched summary with a news template (new information, mechanisms, context, implications, opinion) or a guide template (prerequisites, steps, checks, fixes, reference). Use provider captions when they exist. Use the local video-transcriber CLI and the selected catalog model when captions do not exist. Requires an explicit slash command.
 disable-model-invocation: true
 ---
 
 # Video transcript → researched summary
 
-Default output is the **summary** (see "Summary template"). Give only the raw transcript if the user asks for just that.
+Default output is the **summary** (see "Templates"). Give only the raw transcript if the user asks for just that.
+
+Usage: `/skill:video-summary [news|guide] <URL-or-path> [questions]`.
 
 ## Setup
 Tell the user to run `/video-setup` in Pi for the setup. The extension opens a Pi dialog for the model selection.
@@ -39,43 +41,33 @@ The `/video-setup` extension uses `pi.exec()` and Pi dialogs directly. It does n
    `video-transcriber transcribe <URL-or-local-path> --format json --output <temporary-path>`
    Read the whole JSON file in chunks through `codemode`. The `text` field contains the transcript. The `source` field contains the metadata. Return the full transcript text and source metadata to the agent. Report a true `truncated` flag. Do not summarize only the first chunk.
 4. **Check the requested output.** For a transcript-only request, return the full transcript and stop. Do not do web research. Otherwise, list the user's concrete questions. If there are none, skip section 1 of the template.
-5. **Research the topic on the web before writing.** Use `web_search` with 2–4 varied queries through `codemode`. Then use `fetch_content` through `codemode` on the best sources. Do this twice:
-   - For *What's new*: what is announced or released, and does outside coverage confirm or contradict the video's claims? Find the primary source (repo, paper, blog, press release).
-   - For *Behind the news*: background, reactions, criticism, earlier events, who said what, and the competitive or regulatory context.
-6. **Write the summary** in the template below. Mark each fact by its source: "the video says…" when it comes only from the transcript, and name the source for web-sourced facts. If the web contradicts the video, say so.
+5. **Choose the template.** See "Templates". Read the template file in full through `codemode` before the research.
+6. **Research the topic on the web before writing.** Use `web_search` with 2–4 varied queries through `codemode`. Then use `fetch_content` through `codemode` on the best sources. Do the research passes in the "Research targets" section of the template.
+7. **Write the summary** in the chosen template. Mark each fact by its source: "the video says…" when it comes only from the transcript, and name the source for web-sourced facts. If the web contradicts the video, say so.
 
-## Summary template
-Force this exact markdown structure: same heading levels, same numbering, same order. Write prose paragraphs under each heading, not bullet lists. The only exceptions are section 1, which is a bullet list, and short lists inside section 3 that enumerate parallel items.
+## Templates
+Each template is a file in `templates/`, relative to this skill directory. Each file gives the research targets, the exact markdown structure, and the template rules.
 
-```markdown
-# <Topic title>
+| Template | File | Use for |
+|---|---|---|
+| `news` | `templates/news.md` | Announcements, releases, events, analysis, commentary. |
+| `guide` | `templates/guide.md` | Tutorials, how-to videos, walkthroughs, courses, setup demos. |
 
-## 1. User questions
-- **<Question 1 as the user asked it>** <Direct answer first, then the support from the video and the web.>
-- **<Question 2>** <Answer.>
+Choose the template in this order:
+1. If the first argument is a template name, use that template. Remove the name from the arguments.
+2. If the user asks for a guide, tutorial, how-to, or steps, use `guide`. If the user asks for news, use `news`.
+3. Otherwise, choose from the transcript. If the video mainly teaches the viewer to do a task, use `guide`. Else use `news`.
 
-## 2. What's new
-<What was announced or released, who did it, when, and the headline numbers. Before writing, search the topic and compare with the video's claims. Flag anything the video says that sources don't confirm, or that sources contradict.>
+Tell the user the chosen template in one line before the summary. When step 3 chose the template, also tell the user how to choose the other template.
 
-## 3. How it works
-<Mechanism and technical or product details in several paragraphs. Include figures, limits, and caveats that the video gives. Explain jargon on first use.>
+To add a template, add a file in `templates/` with the same 3 sections. Then add a row to the table above.
 
-## 4. Behind the news
-<Needs web research. Context before this event, reactions from critics and supporters (named, with sources), competing approaches, business or regulatory background, anything the video omits.>
-
-## 5. Why it matters
-<Implications for the industry, users, or competitors. Say who is affected and what to watch next.>
-
-## 6. We're thinking
-<Your own opinion, in first person plural, in a short paragraph. Take a position and justify it. Say what you're unsure about. This is the one section where it is fine to go beyond the sources.>
-```
-
-Template rules:
-- **Title:** a clear headline for the topic, not the video's clickbait title. Never use a colon (`:`) in it. Use a hyphen (`-`) if a separator is needed, for example `# DeepSeek Deep Infer - How Open-Sourcing an Inference Engine Triples GPU Output`.
-- **Section 1:** include it only if the user asked concrete questions that the sections below don't already answer. Skip the whole section, heading included, if the user only asked for a summary, or if their questions are fully covered by sections 2–5. When skipped, keep the other headings numbered 2 to 6 so the structure doesn't change.
+Rules for all templates:
+- **Title:** never use a colon (`:`) in it. Use a hyphen (`-`) if a separator is needed.
+- **Section 1:** skip the whole section, heading included, when the user asked no concrete questions. Do not renumber the other sections.
 - Keep the headings word for word, including numbers and the `##` level. Do not add, rename, merge, or reorder sections, and do not add a subtitle line under the title.
 
-Language style: write all of the summary in **ASD-STE100 Simplified Technical English**. Apply it to every section, including section 6.
+Language style: write all of the summary in **ASD-STE100 Simplified Technical English**. Apply it to every section, including the opinion section.
 - Use short sentences. Maximum 25 words in descriptive text. Maximum 20 words in instructions.
 - Write one idea in each sentence. Keep paragraphs to 6 sentences or fewer.
 - Use the active voice and the simple tenses (present, past, future). Avoid the passive voice, the perfect tenses, and the "-ing" form as a verb (gerund).
@@ -89,10 +81,9 @@ Language style: write all of the summary in **ASD-STE100 Simplified Technical En
 - Write in the same language as the user's message. If it is not English, keep the same simple, short-sentence style in that language.
 
 Style rules:
-- Plain, factual, neutral tone in every section except *We're thinking*.
+- Use the tone and the length in the template rules.
 - Keep numbers exact. Use the video's figures, and say if they are vendor-reported or estimates by the creator.
 - Dates: use absolute dates, and state the video's upload date.
-- Length: about 500–900 words total. Shorter videos get shorter summaries.
 - End with a one-line source list: the video (title, channel) and the main web sources.
 - Captions are auto-generated. Names, model names, and numbers may be transcribed wrongly, so cross-check them with the web before repeating them.
 
